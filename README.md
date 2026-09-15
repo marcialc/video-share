@@ -23,7 +23,7 @@ npm run dev
 
 Open the URL printed by Vite. `setup` creates `.dev.vars`, generates Worker types, and applies the local database migration. Local R2 and D1 data persist under `.wrangler/state`; a Cloudflare account is not needed for local development.
 
-Localhost uses `DEV_MODE=true` from `.dev.vars` to open the library directly. To test sign-in locally, set `DEV_MODE=false` and give `ADMIN_PASSWORD` a password of at least 12 characters in `.dev.vars`, then restart the dev server. Never commit `.dev.vars`.
+Localhost uses `DEV_MODE=true` from `.dev.vars` to open the library directly. To test sign-in locally, set `DEV_MODE=false` and give `ADMIN_PASSWORD` a password of at least 8 characters in `.dev.vars`, then restart the dev server. Never commit `.dev.vars`.
 
 ## What works
 
@@ -84,7 +84,7 @@ This repository is configured with the existing `frame-library` D1 database and 
    npx wrangler secret put ADMIN_PASSWORD
    ```
 
-   Use a unique password with at least 12 characters. It is also the session signing secret; changing it signs out existing sessions. Do not set `DEV_MODE` in production. The Worker fails closed when no valid password is configured.
+   Use a unique password with at least 8 characters. It is also the session signing secret; changing it signs out existing sessions. Do not set `DEV_MODE` in production. The Worker fails closed when no valid password is configured.
 
 4. Build and deploy:
 

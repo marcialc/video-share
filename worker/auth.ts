@@ -18,7 +18,7 @@ async function signingKey(env: Env) {
 
 export async function authenticated(request: Request, env: Env): Promise<boolean> {
   if (isLocal(request, env)) return true
-  if (!env.ADMIN_PASSWORD || env.ADMIN_PASSWORD.length < 12) return false
+  if (!env.ADMIN_PASSWORD || env.ADMIN_PASSWORD.length < 8) return false
   const cookie = request.headers.get('cookie')?.split(';').map(v => v.trim()).find(v => v.startsWith('frame_session='))?.slice(14)
   if (!cookie) return false
   const [expires, signature] = cookie.split('.')
@@ -34,10 +34,10 @@ function cookie(value: string, request: Request, age: number) {
 }
 
 export async function session(request: Request, env: Env): Promise<Response> {
-  if (request.method === 'GET') return json({ authenticated: await authenticated(request, env), local: isLocal(request, env), configured: isLocal(request, env) || Boolean(env.ADMIN_PASSWORD?.length >= 12) })
+  if (request.method === 'GET') return json({ authenticated: await authenticated(request, env), local: isLocal(request, env), configured: isLocal(request, env) || Boolean(env.ADMIN_PASSWORD?.length >= 8) })
   if (request.method === 'DELETE') return new Response(null, { status: 204, headers: { 'Set-Cookie': cookie('', request, 0) } })
   if (request.method !== 'POST') throw new HttpError(405, 'Method not allowed.')
-  if (!env.ADMIN_PASSWORD || env.ADMIN_PASSWORD.length < 12) throw new HttpError(503, 'Set an ADMIN_PASSWORD of at least 12 characters in your Cloudflare Worker secrets.')
+  if (!env.ADMIN_PASSWORD || env.ADMIN_PASSWORD.length < 8) throw new HttpError(503, 'Set an ADMIN_PASSWORD of at least 8 characters in your Cloudflare Worker secrets.')
   const { password } = await readJson(request)
   if (typeof password !== 'string' || password.length > 1024) throw new HttpError(400, 'Enter your library password.')
   const ip = request.headers.get('CF-Connecting-IP') || 'local'

@@ -6,7 +6,7 @@ import { Miniflare, convertV4MiniflareOptions } from 'miniflare'
 let runtime
 let cookie
 const origin = 'https://frame.test'
-const password = 'test-only-password-for-isolated-runtime'
+const password = 'testpass' // Exercise sign-in and cookies at the eight-character minimum.
 const bytes = Buffer.alloc(10 * 1024 * 1024 + 37, 42)
 
 function request(path, { method = 'GET', data, body, headers = {}, authenticated = true } = {}) {
@@ -42,6 +42,7 @@ before(async () => {
 after(async () => { await runtime?.dispose() })
 
 test('private library requires a valid owner session and rejects cross-origin changes', async () => {
+  assert.equal((await jsonResponse('/api/session', { authenticated: false })).configured, true)
   assert.equal((await request('/api/library', { authenticated: false })).status, 401)
   assert.equal((await request('/api/session', { method: 'POST', data: { password: 'wrong-password' } })).status, 401)
   const login = await request('/api/session', { method: 'POST', data: { password } })
