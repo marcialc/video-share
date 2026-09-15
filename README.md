@@ -42,6 +42,27 @@ Deleting a folder keeps its videos in the library. Deleting a video removes its 
 
 ## Deploy to Cloudflare
 
+### Cloudflare dashboard / Git deployments
+
+In your Worker's **Settings → Builds → Build configuration**, set:
+
+| Setting | Value |
+| --- | --- |
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler deploy` |
+| Non-production branch deploy command | `npx wrangler versions upload` |
+| Root directory | Repository root (`/`) |
+
+Save the settings and retry the build. The build command creates `dist/client` and the generated Worker configuration before Wrangler deploys them. A fresh Git checkout contains neither of these generated files.
+
+Alternatively, if you leave the build command empty, set the deploy command to `npm run deploy`, which builds before deploying. Preview branches still need a build step before `wrangler versions upload`.
+
+If a deployment reports that `dist/client` does not exist, check these commands first. Do not commit `dist` or point the asset directory at the source files. The npm `allow-scripts` warnings in the install log are separate from this missing-build error.
+
+These dashboard settings are separate from `wrangler.jsonc`; Workers Builds does not honor Wrangler's custom `build.command` setting. See [Cloudflare's build configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/).
+
+### First-time resources and CLI deployment
+
 The project is ready for deployment, but its placeholder D1 ID must first be replaced. Resource creation and deployment use your Cloudflare account.
 
 1. Authenticate and create storage:
