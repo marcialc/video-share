@@ -1,0 +1,3 @@
+# Local development only. Production always requires ADMIN_PASSWORD.
+DEV_MODE=true
+ADMIN_PASSWORD=
