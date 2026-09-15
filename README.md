@@ -53,7 +53,7 @@ In your Worker's **Settings → Builds → Build configuration**, set:
 | Non-production branch deploy command | `npx wrangler versions upload` |
 | Root directory | Repository root (`/`) |
 
-Save the settings and retry the build. The build command creates `dist/client` and the generated Worker configuration before Wrangler deploys them. A fresh Git checkout contains neither of these generated files.
+Save the settings before retrying the build or pushing a new commit to `main`. The build command creates `dist/client` and the generated Worker configuration before Wrangler deploys them. A fresh Git checkout contains neither of these generated files.
 
 The Worker name in `wrangler.jsonc` is `video-share`, matching the connected Cloudflare Worker. If you rename the Worker, update this configuration too.
 
