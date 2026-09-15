@@ -65,7 +65,7 @@ These dashboard settings are separate from `wrangler.jsonc`; Workers Builds does
 
 ### First-time resources and CLI deployment
 
-The project is ready for deployment, but its placeholder D1 ID must first be replaced. Resource creation and deployment use your Cloudflare account.
+This repository is configured with the existing `frame-library` D1 database and `frame-videos` R2 bucket. When deploying to a different Cloudflare account, create your own resources and replace the D1 ID using the steps below.
 
 1. Authenticate and create storage:
 

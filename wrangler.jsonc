@@ -13,7 +13,7 @@
   "d1_databases": [{
     "binding": "DB",
     "database_name": "frame-library",
-    "database_id": "00000000-0000-0000-0000-000000000000",
+    "database_id": "f756341b-3b6b-43bf-9c3c-e0b21bff3410",
     "migrations_dir": "migrations"
   }],
   "r2_buckets": [{ "binding": "VIDEOS", "bucket_name": "frame-videos" }],
