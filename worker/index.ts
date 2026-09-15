@@ -75,14 +75,15 @@ async function route(request: Request, env: Env): Promise<Response> {
   const sharedFolder = /^\/api\/shared-folders\/([a-f0-9-]{36})(?:\/videos\/([a-f0-9-]{36})\/(media|thumbnail))?$/.exec(path)
   if (sharedFolder) {
     if (!['GET', 'HEAD'].includes(method)) throw new HttpError(405, 'Method not allowed.')
-    const folder = await env.DB.prepare('SELECT id, name, color FROM folders WHERE share_token = ?').bind(sharedFolder[1]).first<Pick<Folder, 'id' | 'name' | 'color'>>()
-    if (!folder) throw new HttpError(404, 'This folder link is unavailable. It may have been turned off by the owner.')
     if (sharedFolder[2]) {
-      // Recheck membership on every request so moves and revocation remove access.
-      const video = await env.DB.prepare("SELECT * FROM videos WHERE id = ? AND folder_id = ? AND status = 'ready'").bind(sharedFolder[2], folder.id).first<VideoRow>()
+      // Check the share token and current folder membership in one D1 lookup per media request.
+      const video = await env.DB.prepare("SELECT v.* FROM videos v JOIN folders f ON f.id = v.folder_id WHERE f.share_token = ? AND v.id = ? AND v.status = 'ready'")
+        .bind(sharedFolder[1], sharedFolder[2]).first<VideoRow>()
       if (!video) throw new HttpError(404, 'This video is no longer available in this folder.')
       return media(request, env, video, sharedFolder[3] === 'thumbnail')
     }
+    const folder = await env.DB.prepare('SELECT id, name, color FROM folders WHERE share_token = ?').bind(sharedFolder[1]).first<Pick<Folder, 'id' | 'name' | 'color'>>()
+    if (!folder) throw new HttpError(404, 'This folder link is unavailable. It may have been turned off by the owner.')
     const videos = await env.DB.prepare("SELECT * FROM videos WHERE folder_id = ? AND status = 'ready' ORDER BY created_at DESC, id DESC").bind(folder.id).all<VideoRow>()
     return json({ name: folder.name, color: folder.color, videos: videos.results.map(video => ({ id: video.id, ...publicVideo(video) })) })
   }
