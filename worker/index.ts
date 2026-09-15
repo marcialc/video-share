@@ -1,10 +1,14 @@
 import { CHUNK_SIZE, MAX_FILE_SIZE, VIDEO_TYPES } from '../shared/types'
-import type { Video } from '../shared/types'
+import type { Folder, PublicVideo, Video } from '../shared/types'
 import { authenticated, session } from './auth'
 import { HttpError, json, readJson, secure, validName } from './http'
 
 interface VideoRow extends Video { object_key: string; upload_id: string | null; status: 'uploading' | 'ready' }
 const PUBLIC_COLUMNS = 'id, name, original_name, folder_id, mime_type, size, duration, thumbnail_key, share_token, created_at'
+
+function publicVideo(video: VideoRow): PublicVideo {
+  return { name: video.name, original_name: video.original_name, mime_type: video.mime_type, size: video.size, duration: video.duration, has_thumbnail: Boolean(video.thumbnail_key) }
+}
 
 async function getVideo(env: Env, id: string): Promise<VideoRow> {
   const video = await env.DB.prepare('SELECT * FROM videos WHERE id = ?').bind(id).first<VideoRow>()
@@ -65,7 +69,22 @@ async function route(request: Request, env: Env): Promise<Response> {
     const video = await env.DB.prepare("SELECT * FROM videos WHERE share_token = ? AND status = 'ready'").bind(shared[1]).first<VideoRow>()
     if (!video) throw new HttpError(404, 'This link is unavailable. It may have been turned off by the owner.')
     if (shared[2]) return media(request, env, video, shared[2] === 'thumbnail')
-    return json({ name: video.name, original_name: video.original_name, mime_type: video.mime_type, size: video.size, duration: video.duration, has_thumbnail: Boolean(video.thumbnail_key) })
+    return json(publicVideo(video))
+  }
+
+  const sharedFolder = /^\/api\/shared-folders\/([a-f0-9-]{36})(?:\/videos\/([a-f0-9-]{36})\/(media|thumbnail))?$/.exec(path)
+  if (sharedFolder) {
+    if (!['GET', 'HEAD'].includes(method)) throw new HttpError(405, 'Method not allowed.')
+    const folder = await env.DB.prepare('SELECT id, name, color FROM folders WHERE share_token = ?').bind(sharedFolder[1]).first<Pick<Folder, 'id' | 'name' | 'color'>>()
+    if (!folder) throw new HttpError(404, 'This folder link is unavailable. It may have been turned off by the owner.')
+    if (sharedFolder[2]) {
+      // Recheck membership on every request so moves and revocation remove access.
+      const video = await env.DB.prepare("SELECT * FROM videos WHERE id = ? AND folder_id = ? AND status = 'ready'").bind(sharedFolder[2], folder.id).first<VideoRow>()
+      if (!video) throw new HttpError(404, 'This video is no longer available in this folder.')
+      return media(request, env, video, sharedFolder[3] === 'thumbnail')
+    }
+    const videos = await env.DB.prepare("SELECT * FROM videos WHERE folder_id = ? AND status = 'ready' ORDER BY created_at DESC, id DESC").bind(folder.id).all<VideoRow>()
+    return json({ name: folder.name, color: folder.color, videos: videos.results.map(video => ({ id: video.id, ...publicVideo(video) })) })
   }
 
   if (!await authenticated(request, env)) throw new HttpError(401, 'Sign in to your library to continue.')
@@ -85,6 +104,16 @@ async function route(request: Request, env: Env): Promise<Response> {
     const color = typeof body.color === 'string' && ['violet', 'blue', 'amber', 'green', 'rose'].includes(body.color) ? body.color : 'violet'
     await env.DB.prepare('INSERT INTO folders (id, name, color) VALUES (?, ?, ?)').bind(id, name, color).run()
     return json({ id, name, color }, 201)
+  }
+  const folderShare = /^\/api\/folders\/([^/]+)\/share$/.exec(path)
+  if (folderShare) {
+    if (!['POST', 'DELETE'].includes(method)) throw new HttpError(405, 'Method not allowed.')
+    const result = await env.DB.prepare(method === 'POST'
+      ? 'UPDATE folders SET share_token = COALESCE(share_token, ?) WHERE id = ? RETURNING share_token'
+      : 'UPDATE folders SET share_token = ? WHERE id = ? RETURNING share_token')
+      .bind(method === 'POST' ? crypto.randomUUID() : null, folderShare[1]).first<{ share_token: string | null }>()
+    if (!result) throw new HttpError(404, 'Folder not found.')
+    return json(method === 'POST' ? { token: result.share_token } : { ok: true })
   }
   const folderMatch = /^\/api\/folders\/([^/]+)$/.exec(path)
   if (folderMatch) {

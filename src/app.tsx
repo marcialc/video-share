@@ -4,6 +4,7 @@ import { Toaster, toast } from 'sonner'
 import { Brand } from './components/brand'
 import { Library } from './components/library'
 import { VideoPlayer } from './components/player'
+import { SharedFolder } from './components/shared-folder'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { api, errorMessage } from './lib/api'
@@ -33,15 +34,16 @@ function Login({ configured, onLogin }: { configured: boolean; onLogin: () => vo
 
 export default function App() {
   const token = /^\/s\/([^/]+)\/?$/.exec(window.location.pathname)?.[1]
+  const folderToken = /^\/f\/([^/]+)\/?$/.exec(window.location.pathname)?.[1]
   const [session, setSession] = useState<{ authenticated: boolean; local: boolean; configured: boolean } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const loadSession = () => { setError(null); void api<{ authenticated: boolean; local: boolean; configured: boolean }>('/api/session').then(setSession).catch(err => setError(errorMessage(err))) }
   useEffect(() => {
-    if (token) return
+    if (token || folderToken) return
     loadSession()
     const unauthorized = () => setSession(previous => previous ? { ...previous, authenticated: false } : previous)
     window.addEventListener('frame:unauthorized', unauthorized)
     return () => window.removeEventListener('frame:unauthorized', unauthorized)
-  }, [token])
-  return <>{token ? <SharedVideo token={token} /> : error ? <div className="app-loading"><p>{error}</p><Button onClick={loadSession}>Try again</Button></div> : !session ? <div className="app-loading"><Brand /><Loader2 className="animate-spin text-primary" /></div> : session.authenticated ? <Library local={session.local} onLogout={() => setSession({ ...session, authenticated: false })} /> : <Login configured={session.configured} onLogin={loadSession} />}<Toaster position="bottom-right" richColors closeButton /></>
+  }, [token, folderToken])
+  return <>{folderToken ? <SharedFolder token={folderToken} /> : token ? <SharedVideo token={token} /> : error ? <div className="app-loading"><p>{error}</p><Button onClick={loadSession}>Try again</Button></div> : !session ? <div className="app-loading"><Brand /><Loader2 className="animate-spin text-primary" /></div> : session.authenticated ? <Library local={session.local} onLogout={() => setSession({ ...session, authenticated: false })} /> : <Login configured={session.configured} onLogin={loadSession} />}<Toaster position="bottom-right" richColors closeButton /></>
 }

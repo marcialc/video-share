@@ -1,6 +1,6 @@
 # Frame
 
-A small, private video library. Upload videos, organize them into folders, rename or move them, and share individual videos with a link.
+A small, private video library. Upload videos, organize them into folders, rename or move them, and share videos or whole folders with a link.
 
 ## Stack
 
@@ -34,11 +34,11 @@ Localhost uses `DEV_MODE=true` from `.dev.vars` to open the library directly. To
 - Rename and move videos without copying the underlying files
 - Search, sort, and grid/list views
 - Private playback and downloads with HTTP range support for seeking
-- Public watch pages at `/s/:token`, with download links
+- Public video pages at `/s/:token` and folder pages at `/f/:token`, with playback and download links
 - Create and revoke share links; creating a new link after revocation uses a new token
 - One password for the library owner; signed, HttpOnly session cookies and login throttling
 
-Deleting a folder keeps its videos in the library. Deleting a video removes its original file and thumbnail and revokes its link. Uploads are private until you explicitly create a share link.
+Deleting a folder keeps its videos in the library and turns off its folder link. Deleting a video removes its original file and thumbnail and revokes its video link. Uploads are private until you explicitly create a share link. A folder link gives anyone holding it access to ready videos currently in that folder, including videos added later. Moving a video out removes it from the shared folder; an individual video link still works until it is revoked.
 
 ## Deploy to Cloudflare
 

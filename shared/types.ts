@@ -3,6 +3,7 @@ export interface Folder {
   id: string
   name: string
   color: FolderColor
+  share_token: string | null
   created_at: string
   video_count: number
   total_size: number
@@ -21,6 +22,8 @@ export interface Video {
 }
 export interface Library { folders: Folder[]; videos: Video[] }
 export interface PublicVideo { name: string; original_name: string; size: number; mime_type: string; duration: number | null; has_thumbnail: boolean }
+export interface PublicFolderVideo extends PublicVideo { id: string }
+export interface PublicFolder { name: string; color: FolderColor; videos: PublicFolderVideo[] }
 export const CHUNK_SIZE = 10 * 1024 * 1024
 export const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024
 export const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v', 'video/ogg']
