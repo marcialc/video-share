@@ -28,7 +28,7 @@ before(async () => {
   runtime = new Miniflare(convertV4MiniflareOptions({
     name: 'frame-test',
     modules: true,
-    scriptPath: new URL('../dist/frame_video_share/index.js', import.meta.url).pathname,
+    scriptPath: new URL('../dist/video_share/index.js', import.meta.url).pathname,
     compatibilityDate: '2026-09-14',
     compatibilityFlags: ['nodejs_compat'],
     bindings: { DEV_MODE: 'false', ADMIN_PASSWORD: password },

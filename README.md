@@ -55,6 +55,8 @@ In your Worker's **Settings → Builds → Build configuration**, set:
 
 Save the settings and retry the build. The build command creates `dist/client` and the generated Worker configuration before Wrangler deploys them. A fresh Git checkout contains neither of these generated files.
 
+The Worker name in `wrangler.jsonc` is `video-share`, matching the connected Cloudflare Worker. If you rename the Worker, update this configuration too.
+
 Alternatively, if you leave the build command empty, set the deploy command to `npm run deploy`, which builds before deploying. Preview branches still need a build step before `wrangler versions upload`.
 
 If a deployment reports that `dist/client` does not exist, check these commands first. Do not commit `dist` or point the asset directory at the source files. The npm `allow-scripts` warnings in the install log are separate from this missing-build error.
