@@ -1,19 +1,31 @@
 # Frame
 
-A small, private video library. Upload videos, organize them into folders, rename or move them, and share videos or whole folders with a link.
+A small, self-hosted video library that runs entirely on Cloudflare. Upload videos, organize them into folders, and share a single video or a whole folder with a link. No account is needed to watch.
+
+Frame is built for one owner: you sign in with a single password, and everything stays private until you create a share link.
+
+## Features
+
+- **Uploads**: drag-and-drop multiple videos with progress, cancel, and per-chunk retries (10 MiB multipart chunks, up to 5 GiB per video)
+- **Library**: folders with colors, rename and move videos without copying files, search, sort, and grid or list views
+- **Playback**: browser-generated thumbnails and durations; streaming with HTTP range support for seeking; originals always downloadable
+- **Sharing**: public video pages at `/s/:token` and folder pages at `/f/:token`; links can be revoked at any time, and a new link after revocation gets a new token
+- **Security**: one owner password, signed HttpOnly session cookies, login throttling, and a private R2 bucket reachable only through the Worker
 
 ## Stack
 
-- React + TypeScript + Vite
-- Tailwind CSS + shadcn/ui components built on Radix
-- Cloudflare Workers for the API and frontend hosting
-- Cloudflare R2 for original videos and thumbnails
-- Cloudflare D1 for folders, video metadata, and share links
-- Self-hosted Inter font; no external frontend services
+| Layer | Technology |
+| --- | --- |
+| Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui (Radix) |
+| API and hosting | Cloudflare Workers |
+| Video and thumbnail storage | Cloudflare R2 |
+| Folders, metadata, share links | Cloudflare D1 |
 
-## Run locally
+The frontend self-hosts its font and calls no external services.
 
-Requires Node.js 22.12 or newer.
+## Quick start (local)
+
+Requires Node.js 22.12 or newer. You don't need a Cloudflare account for local development.
 
 ```sh
 npm install
@@ -21,53 +33,24 @@ npm run setup
 npm run dev
 ```
 
-Open the URL printed by Vite. `setup` creates `.dev.vars`, generates Worker types, and applies the local database migration. Local R2 and D1 data persist under `.wrangler/state`; a Cloudflare account is not needed for local development.
+Open the URL printed by Vite. `npm run setup` creates `.dev.vars` from `.dev.vars.example`, generates Worker types, and applies the database migrations locally. Local R2 and D1 data persist under `.wrangler/state`.
 
-Localhost uses `DEV_MODE=true` from `.dev.vars` to open the library directly. To test sign-in locally, set `DEV_MODE=false` and give `ADMIN_PASSWORD` a password of at least 8 characters in `.dev.vars`, then restart the dev server. Never commit `.dev.vars`.
+By default, `DEV_MODE=true` in `.dev.vars` opens the library without signing in. To test sign-in, set `DEV_MODE=false` and give `ADMIN_PASSWORD` at least 8 characters, then restart the dev server. `.dev.vars` is gitignored; never commit it.
 
-## What works
+## Configuration
 
-- Multiple video uploads with drag-and-drop, progress, canceling, and retries
-- 10 MiB multipart chunks; application limit of 5 GiB per video
-- Browser-generated thumbnails and duration metadata
-- Create, rename, and delete folders; choose a folder color
-- Rename and move videos without copying the underlying files
-- Search, sort, and grid/list views
-- Private playback and downloads with HTTP range support for seeking
-- Public video pages at `/s/:token` and folder pages at `/f/:token`, with playback and download links
-- Create and revoke share links; creating a new link after revocation uses a new token
-- One password for the library owner; signed, HttpOnly session cookies and login throttling
+| Variable | Where | Purpose |
+| --- | --- | --- |
+| `ADMIN_PASSWORD` | `.dev.vars` locally, a Worker secret in production | Owner password (8+ characters). Also signs session cookies, so changing it signs everyone out. |
+| `DEV_MODE` | `.dev.vars` only | `true` skips sign-in on localhost. **Never set in production.** |
 
-Deleting a folder keeps its videos in the library and turns off its folder link. Deleting a video removes its original file and thumbnail and revokes its video link. Uploads are private until you explicitly create a share link. A folder link gives anyone holding it access to ready videos currently in that folder, including videos added later. Moving a video out removes it from the shared folder; an individual video link still works until it is revoked.
+If no valid password is configured, the Worker fails closed.
 
-## Deploy to Cloudflare
+## Deploy to your Cloudflare account
 
-### Cloudflare dashboard / Git deployments
+`wrangler.jsonc` points at the original author's D1 database. Create your own resources first:
 
-In your Worker's **Settings → Builds → Build configuration**, set:
-
-| Setting | Value |
-| --- | --- |
-| Build command | `npm run build` |
-| Deploy command | `npx wrangler deploy` |
-| Non-production branch deploy command | `npx wrangler versions upload` |
-| Root directory | Repository root (`/`) |
-
-Save the settings before retrying the build or pushing a new commit to `main`. The build command creates `dist/client` and the generated Worker configuration before Wrangler deploys them. A fresh Git checkout contains neither of these generated files.
-
-The Worker name in `wrangler.jsonc` is `video-share`, matching the connected Cloudflare Worker. If you rename the Worker, update this configuration too.
-
-Alternatively, if you leave the build command empty, set the deploy command to `npm run deploy`, which builds before deploying. Preview branches still need a build step before `wrangler versions upload`.
-
-If a deployment reports that `dist/client` does not exist, check these commands first. Do not commit `dist` or point the asset directory at the source files. The npm `allow-scripts` warnings in the install log are separate from this missing-build error.
-
-These dashboard settings are separate from `wrangler.jsonc`; Workers Builds does not honor Wrangler's custom `build.command` setting. See [Cloudflare's build configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/).
-
-### First-time resources and CLI deployment
-
-This repository is configured with the existing `frame-library` D1 database and `frame-videos` R2 bucket. When deploying to a different Cloudflare account, create your own resources and replace the D1 ID using the steps below.
-
-1. Authenticate and create storage:
+1. **Log in and create storage**
 
    ```sh
    npx wrangler login
@@ -75,42 +58,67 @@ This repository is configured with the existing `frame-library` D1 database and 
    npx wrangler r2 bucket create frame-videos
    ```
 
-2. Copy the returned D1 `database_id` into `wrangler.jsonc`. Adjust the Worker and bucket names if those names are already in use in your account.
+2. **Update `wrangler.jsonc`**: paste the `database_id` printed by the D1 command. If any names are already taken in your account, change the Worker `name`, `database_name`, or `bucket_name`. If you rename the database, update the `db:migrate` scripts in `package.json` too.
 
-3. Apply the production schema and configure the password:
+3. **Apply the schema and set the password**
 
    ```sh
    npm run db:migrate:remote
    npx wrangler secret put ADMIN_PASSWORD
    ```
 
-   Use a unique password with at least 8 characters. It is also the session signing secret; changing it signs out existing sessions. Do not set `DEV_MODE` in production. The Worker fails closed when no valid password is configured.
-
-4. Build and deploy:
+4. **Build and deploy**
 
    ```sh
    npm run deploy
    ```
 
-   Open the `workers.dev` URL printed by Wrangler. The library uses one private R2 bucket; folders are logical collections stored in D1. Keep the R2 bucket private so all access goes through the Worker.
+   Open the `workers.dev` URL printed by Wrangler. Keep the R2 bucket private so all access goes through the Worker.
 
-## Validation
+### Deploying from Git (Workers Builds)
+
+If you connect the repository in the Cloudflare dashboard, go to your Worker's **Settings → Builds → Build configuration** and set:
+
+| Setting | Value |
+| --- | --- |
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler deploy` |
+| Non-production branch deploy command | `npx wrangler versions upload` |
+| Root directory | `/` |
+
+A fresh checkout contains neither `dist/client` nor the generated Worker config, so the build command is required. If you leave it empty, use `npm run deploy` as the deploy command instead. That builds and deploys, but preview branches still need a build step before `wrangler versions upload`. Workers Builds ignores Wrangler's custom `build.command`; see [Cloudflare's build configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/).
+
+**Troubleshooting:** if a deployment reports that `dist/client` does not exist, check the build command. Don't commit `dist` or point the asset directory at the source files. The npm `allow-scripts` warnings in the install log are unrelated.
+
+## How sharing works
+
+- New uploads are private until you create a share link.
+- A **video link** plays and downloads that video until you revoke it, even if you move the video to another folder.
+- A **folder link** shows the ready videos currently in that folder, including ones you add later. Moving a video out removes it from the folder page.
+- **Deleting a folder** keeps its videos in the library and turns off the folder link.
+- **Deleting a video** removes the original file and thumbnail and revokes its link.
+
+## Testing
 
 ```sh
 npm test
 ```
 
-`npm test` type-checks and builds the project, then runs integration tests against isolated local Cloudflare storage. Tests do not touch your library or Cloudflare account. Use `npm run typecheck` or `npm run build` to run those checks separately.
+This type-checks and builds the project, then runs integration tests against isolated local Cloudflare storage. The tests never touch your library or your Cloudflare account. Run `npm run typecheck` or `npm run build` on their own for just those checks.
 
-## Scope and limits
+## Limits
 
-This is a single-owner library with flat folders. MP4, MOV, WebM, M4V, and OGV uploads are accepted. Original files are served directly from R2; there is no transcoding. Playback depends on browser codec support. H.264/AAC MP4 is a good choice for sharing, and originals are always downloadable.
+- One owner and flat folders only: no team accounts and no nested folders.
+- Accepts MP4, MOV, WebM, M4V, and OGV. Files are served as uploaded, with no transcoding or adaptive streaming, so playback depends on the browser's codec support. H.264/AAC MP4 is the safest choice for sharing.
+- A failed chunk retries while the page stays open, but reloading the page doesn't resume an upload. R2 aborts incomplete multipart uploads after its lifecycle period (seven days by default).
 
-Uploads can retry individual chunks while the page stays open; reloading the page does not resume an upload. R2 automatically aborts incomplete multipart uploads after its configured lifecycle period (seven days by default). The app does not provide team accounts, nested folders, or adaptive streaming.
-
-## Reference docs
+## References
 
 - [Cloudflare React + Vite](https://developers.cloudflare.com/workers/framework-guides/web-apps/react/)
 - [R2 multipart uploads](https://developers.cloudflare.com/r2/objects/upload-objects/)
 - [R2 Worker bindings](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/)
 - [shadcn/ui with Vite](https://ui.shadcn.com/docs/installation/vite)
+
+## License
+
+[MIT](LICENSE)
